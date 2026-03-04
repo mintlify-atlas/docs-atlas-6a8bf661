@@ -1,0 +1,58 @@
+{
+  "projectType": "api-service",
+  "projectName": "Smart Feedback API",
+  "projectDescription": "Sentiment analysis REST API for user feedback built with FastAPI and machine learning",
+  "theme": "palm",
+  "primaryColor": "#10b981",
+  "lightColor": "#34d399",
+  "darkColor": "#059669",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Guides",
+            "pages": ["guides/installation", "guides/usage", "guides/model-training"]
+          },
+          {
+            "group": "Architecture",
+            "pages": ["architecture/overview", "architecture/preprocessing", "architecture/model"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": ["api/analyze"]
+          },
+          {
+            "group": "Models",
+            "pages": ["api/request-response"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Sentiment analysis for Spanish text feedback",
+    "Real-time ML inference with FastAPI",
+    "TF-IDF vectorization and Logistic Regression model",
+    "Three-class classification: positive, neutral, negative",
+    "Confidence scores for predictions",
+    "Auto-generated OpenAPI documentation"
+  ],
+  "publicApiSurface": [
+    "POST /analyze - Analyze sentiment of text input",
+    "AnalyzeRequest - Input model with text field",
+    "AnalyzeResponse - Output model with sentiment and score",
+    "SentimentModel - ML model for sentiment prediction",
+    "clean_text() - Text preprocessing function"
+  ]
+}
