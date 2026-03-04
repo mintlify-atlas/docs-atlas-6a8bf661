@@ -1,0 +1,139 @@
+---
+title: Request and response models
+description: Data structures for the Smart Feedback API sentiment analysis
+---
+
+This page documents the request and response models used by the Smart Feedback API.
+
+## AnalyzeRequest
+
+The `AnalyzeRequest` model represents the data you send to the `/analyze` endpoint.
+
+### Fields
+
+<ParamField path="text" type="string" required>
+  The text to analyze for sentiment. This field is required and cannot be empty.
+</ParamField>
+
+### Validation rules
+
+- The `text` field must be present in the request body
+- The `text` field cannot be empty or contain only whitespace
+- If validation fails, the API returns a 400 error with the message: `"El texto no puede estar vacío"`
+
+### Source code reference
+
+From `app/main.py:18-19`:
+
+```python
+class AnalyzeRequest(BaseModel):
+    text: str
+```
+
+### Example payload
+
+```json
+{
+  "text": "La atención al cliente fue adecuada. Cuando tuve un inconveniente con mi pedido, logré comunicarme con un representante que me respondió sin muchos problemas."
+}
+```
+
+<Note>
+  The API preprocesses all text by converting it to lowercase, removing accents, and cleaning special characters before analysis. However, you should send the original text as-is.
+</Note>
+
+## AnalyzeResponse
+
+The `AnalyzeResponse` model represents the data returned by the `/analyze` endpoint after processing your request.
+
+### Fields
+
+<ResponseField name="sentiment" type="string">
+  The detected sentiment classification. This field will contain one of three possible values:
+  
+  - `positivo` - Indicates positive sentiment in the analyzed text
+  - `negativo` - Indicates negative sentiment in the analyzed text
+  - `neutral` - Indicates neutral sentiment in the analyzed text
+  
+  The sentiment is determined by a machine learning model trained on Spanish-language customer feedback.
+</ResponseField>
+
+<ResponseField name="score" type="float">
+  The confidence score for the predicted sentiment. This value ranges from 0.0 to 1.0.
+  
+  - Values closer to 1.0 indicate high confidence in the classification
+  - Values closer to 0.0 indicate low confidence in the classification
+  
+  The score represents the probability that the model assigns to the predicted sentiment class.
+</ResponseField>
+
+### Source code reference
+
+From `app/main.py:22-24`:
+
+```python
+class AnalyzeResponse(BaseModel):
+    sentiment: str
+    score: float
+```
+
+From `app/model.py:42-44`:
+
+```python
+return {
+    "sentiment": sentiment,
+    "score": float(score)
+}
+```
+
+### Sentiment values
+
+The API uses Spanish-language sentiment labels:
+
+| Value | Meaning | Description |
+|-------|---------|-------------|
+| `positivo` | Positive | The text expresses satisfaction, praise, or positive emotions |
+| `negativo` | Negative | The text expresses dissatisfaction, complaints, or negative emotions |
+| `neutral` | Neutral | The text is factual, balanced, or lacks strong emotional content |
+
+### Score interpretation
+
+The `score` field helps you understand how confident the model is in its prediction:
+
+- **0.9 - 1.0**: Very high confidence - the model is extremely certain about the classification
+- **0.7 - 0.89**: High confidence - the model is confident but not certain
+- **0.5 - 0.69**: Moderate confidence - the classification is more uncertain
+- **0.0 - 0.49**: Low confidence - you may want to flag these for manual review
+
+<Warning>
+  When the score is below 0.6, consider implementing additional validation or human review to ensure classification accuracy.
+</Warning>
+
+### Example responses
+
+Positive sentiment with high confidence:
+
+```json
+{
+  "sentiment": "positivo",
+  "score": 0.94
+}
+```
+
+Negative sentiment with moderate confidence:
+
+```json
+{
+  "sentiment": "negativo",
+  "score": 0.67
+}
+```
+
+Neutral sentiment with high confidence:
+
+```json
+{
+  "sentiment": "neutral",
+  "score": 0.81
+}
+```

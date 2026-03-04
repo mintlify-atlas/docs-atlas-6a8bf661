@@ -1,0 +1,379 @@
+---
+title: Model Training
+description: Understand how the sentiment analysis model is trained and how to customize it with your own data
+---
+
+The Smart Feedback API uses machine learning to classify customer feedback into sentiment categories. This guide explains how the model works and how you can retrain it.
+
+## Overview
+
+The sentiment model is implemented in `app/model.py` using scikit-learn. It combines two key components:
+
+1. **TF-IDF Vectorization** - Converts text into numerical features
+2. **Logistic Regression** - Classifies text based on those features
+
+The model is automatically trained when the API starts up, making it ready to handle requests immediately.
+
+## Model Architecture
+
+### SentimentModel Class
+
+The `SentimentModel` class (`app/model.py:8`) initializes and trains the sentiment classifier:
+
+```python
+class SentimentModel:
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer()
+        self.model = LogisticRegression(max_iter=1000)
+        self._train()
+```
+
+**Components:**
+
+- **TfidfVectorizer**: Converts text to TF-IDF (Term Frequency-Inverse Document Frequency) features
+- **LogisticRegression**: Multi-class classifier with maximum 1000 iterations for convergence
+
+<Note>
+  The model is trained immediately upon instantiation via the `_train()` method, which is called in the `__init__` constructor.
+</Note>
+
+## Dataset Structure
+
+The training data is stored in `data/reviews.csv` with the following structure:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | string | Unique identifier for each review |
+| `sentiment` | string | The sentiment label: `positivo`, `neutral`, or `negativo` |
+| `message` | string | The review text in Spanish |
+
+### Sample Data
+
+```csv
+id,sentiment,message
+review-positivo-0,positivo,"Quiero agradecer enormemente al equipo de soporte técnico..."
+review-negativo-1,negativo,"No estoy satisfecho con la plataforma. He tenido muchos problemas..."
+review-neutral-2,neutral,"La atención al cliente fue adecuada. Cuando tuve un inconveniente..."
+```
+
+The dataset includes:
+- Real customer feedback examples
+- Balanced representation of all three sentiment classes
+- Spanish language text (the model is trained on Spanish reviews)
+
+## Training Workflow
+
+The training process happens in the `_train` method (`app/model.py:14`):
+
+<Steps>
+  <Step title="Load training data">
+    The method reads the CSV file containing labeled reviews:
+
+    ```python
+    df = pd.read_csv("data/reviews.csv")
+    ```
+  </Step>
+
+  <Step title="Preprocess text">
+    Each review message is cleaned using the `clean_text` function:
+
+    ```python
+    df["clean_text"] = df["message"].apply(clean_text)
+    ```
+
+    The preprocessing (`app/preprocessing.py:4`) performs:
+    - Lowercase conversion
+    - Unicode normalization
+    - ASCII encoding
+    - Special character removal
+    - Whitespace normalization
+  </Step>
+
+  <Step title="Prepare features and labels">
+    Extract the cleaned text (X) and sentiment labels (y):
+
+    ```python
+    X = df["clean_text"]
+    y = df["sentiment"]
+    ```
+  </Step>
+
+  <Step title="Vectorize text">
+    Convert text to TF-IDF numerical features:
+
+    ```python
+    X_vec = self.vectorizer.fit_transform(X)
+    ```
+
+    This creates a sparse matrix where each review is represented as a vector of TF-IDF scores.
+  </Step>
+
+  <Step title="Train classifier">
+    Fit the Logistic Regression model on the vectorized features:
+
+    ```python
+    self.model.fit(X_vec, y)
+    ```
+
+    The model learns to map TF-IDF features to sentiment categories.
+  </Step>
+</Steps>
+
+### When Training Occurs
+
+The model is trained exactly once:
+
+```python
+# app/main.py:15
+sentiment_model = SentimentModel()
+```
+
+This line creates the model instance when the FastAPI application starts, triggering the training process. The trained model persists in memory for the lifetime of the server.
+
+<Warning>
+  Training happens on startup. If `data/reviews.csv` is missing or malformed, the server will fail to start.
+</Warning>
+
+## Understanding the Three Classes
+
+The model classifies feedback into three sentiment categories:
+
+<CardGroup cols={3}>
+  <Card title="Positivo" icon="face-smile" color="green">
+    Positive feedback expressing satisfaction, gratitude, or praise
+
+    **Examples:**
+    - Excellent service
+    - Very helpful team
+    - Fast response time
+  </Card>
+
+  <Card title="Neutral" icon="face-meh" color="yellow">
+    Balanced feedback with mixed sentiments or objective statements
+
+    **Examples:**
+    - Service was adequate
+    - Some good, some bad
+    - Met expectations
+  </Card>
+
+  <Card title="Negativo" icon="face-frown" color="red">
+    Negative feedback expressing dissatisfaction, frustration, or complaints
+
+    **Examples:**
+    - Poor support
+    - Too many problems
+    - Very disappointed
+  </Card>
+</CardGroup>
+
+### Class Distribution
+
+For best results, your training data should have roughly balanced classes. The included dataset contains examples distributed across all three categories to prevent bias.
+
+## How Predictions Work
+
+The `predict` method (`app/model.py:26`) analyzes new text and returns sentiment:
+
+<Steps>
+  <Step title="Vectorize input text">
+    Transform the input text using the trained vectorizer:
+
+    ```python
+    text_vec = self.vectorizer.transform([text])
+    ```
+
+    This converts the text to the same TF-IDF feature space used during training.
+  </Step>
+
+  <Step title="Get class probabilities">
+    Compute probability for each sentiment class:
+
+    ```python
+    probabilities = self.model.predict_proba(text_vec)[0]
+    ```
+
+    Returns an array like `[0.15, 0.72, 0.13]` for [negativo, neutral, positivo].
+  </Step>
+
+  <Step title="Select best prediction">
+    Find the class with highest probability:
+
+    ```python
+    best_index = probabilities.argmax()
+    sentiment = self.model.classes_[best_index]
+    score = probabilities[best_index]
+    ```
+  </Step>
+
+  <Step title="Return result">
+    Return sentiment and confidence score:
+
+    ```python
+    return {
+        "sentiment": sentiment,
+        "score": float(score)
+    }
+    ```
+  </Step>
+</Steps>
+
+### Probability Distribution
+
+The model uses `predict_proba()` to return confidence scores. This provides more nuanced information than a simple binary classification:
+
+```python
+# Example: Mixed sentiment with moderate confidence
+probabilities = [0.2, 0.55, 0.25]  # [negativo, neutral, positivo]
+# Result: neutral with 0.55 confidence
+```
+
+<Tip>
+  You can access the internal probabilities by modifying the `predict` method to return the full probability distribution for advanced use cases.
+</Tip>
+
+## Retraining with Custom Data
+
+You can retrain the model with your own data to improve accuracy for your specific domain.
+
+### Step 1: Prepare Your Dataset
+
+Create or modify `data/reviews.csv` with your custom feedback data:
+
+```csv
+id,sentiment,message
+custom-1,positivo,"Your positive feedback example"
+custom-2,negativo,"Your negative feedback example"
+custom-3,neutral,"Your neutral feedback example"
+```
+
+**Requirements:**
+- Include `message` and `sentiment` columns
+- Use labels: `positivo`, `neutral`, `negativo`
+- Add at least 20-30 examples per class for meaningful training
+- More data generally leads to better accuracy
+
+### Step 2: Balance Your Classes
+
+<Warning>
+  Imbalanced datasets can lead to biased predictions. Aim for roughly equal representation of each sentiment class.
+</Warning>
+
+If you have:
+- 100 positive reviews
+- 10 neutral reviews
+- 5 negative reviews
+
+The model will be biased toward predicting positive sentiment. Try to balance your dataset or use sampling techniques.
+
+### Step 3: Restart the Server
+
+The model retrains automatically on startup:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Watch the startup logs to ensure training completes without errors.
+
+### Step 4: Validate Performance
+
+Test the retrained model with sample inputs:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Your domain-specific feedback example"}'
+```
+
+Check if predictions align with expected sentiments.
+
+## Advanced Customization
+
+### Tuning the Vectorizer
+
+You can modify TF-IDF parameters in `app/model.py:10`:
+
+```python
+self.vectorizer = TfidfVectorizer(
+    max_features=5000,      # Limit vocabulary size
+    min_df=2,               # Ignore rare words
+    max_df=0.8,             # Ignore very common words
+    ngram_range=(1, 2)      # Use unigrams and bigrams
+)
+```
+
+### Tuning the Classifier
+
+Adjust Logistic Regression hyperparameters:
+
+```python
+self.model = LogisticRegression(
+    max_iter=1000,          # Training iterations
+    C=1.0,                  # Regularization strength
+    class_weight='balanced' # Handle imbalanced classes
+)
+```
+
+### Using Different Models
+
+You can replace Logistic Regression with other scikit-learn classifiers:
+
+<CodeGroup>
+```python Random Forest
+from sklearn.ensemble import RandomForestClassifier
+
+self.model = RandomForestClassifier(
+    n_estimators=100,
+    random_state=42
+)
+```
+
+```python Support Vector Machine
+from sklearn.svm import SVC
+
+self.model = SVC(
+    kernel='linear',
+    probability=True  # Required for predict_proba
+)
+```
+
+```python Naive Bayes
+from sklearn.naive_bayes import MultinomialNB
+
+self.model = MultinomialNB()
+```
+</CodeGroup>
+
+<Note>
+  Remember to test different models on your specific dataset. Logistic Regression often provides a good balance of accuracy and speed for text classification.
+</Note>
+
+## Model Persistence
+
+Currently, the model is retrained on every server restart. For production use, consider saving the trained model to disk:
+
+```python
+import joblib
+
+# After training
+joblib.dump(self.vectorizer, 'models/vectorizer.pkl')
+joblib.dump(self.model, 'models/classifier.pkl')
+
+# On startup, load instead of training
+self.vectorizer = joblib.load('models/vectorizer.pkl')
+self.model = joblib.load('models/classifier.pkl')
+```
+
+This improves startup time and ensures consistent predictions.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Usage Guide" icon="rocket" href="/guides/usage">
+    Learn how to use the trained model via the API
+  </Card>
+  <Card title="Installation" icon="download" href="/guides/installation">
+    Set up the development environment
+  </Card>
+</CardGroup>

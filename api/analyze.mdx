@@ -1,0 +1,133 @@
+---
+title: Analyze sentiment
+description: Send text for sentiment analysis and receive a classification with confidence score
+---
+
+The `/analyze` endpoint processes text input and returns a sentiment classification along with a confidence score.
+
+## Endpoint
+
+```
+POST /analyze
+```
+
+**Content-Type**: `application/json`
+
+## Authentication
+
+No authentication is required for this endpoint.
+
+## Request body
+
+<ParamField path="text" type="string" required>
+  The text you want to analyze for sentiment. Cannot be empty or contain only whitespace.
+</ParamField>
+
+## Response
+
+<ResponseField name="sentiment" type="string">
+  The detected sentiment classification. Possible values:
+  - `positivo` - Positive sentiment
+  - `negativo` - Negative sentiment  
+  - `neutral` - Neutral sentiment
+</ResponseField>
+
+<ResponseField name="score" type="float">
+  Confidence score for the predicted sentiment, ranging from 0.0 to 1.0. Higher values indicate greater confidence in the classification.
+</ResponseField>
+
+## Code examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.example.com/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Quiero agradecer enormemente al equipo de soporte técnico"}'
+```
+
+```python Python
+import requests
+
+url = "https://api.example.com/analyze"
+payload = {
+    "text": "Quiero agradecer enormemente al equipo de soporte técnico"
+}
+
+response = requests.post(url, json=payload)
+result = response.json()
+
+print(f"Sentiment: {result['sentiment']}")
+print(f"Score: {result['score']}")
+```
+
+```javascript JavaScript
+const url = 'https://api.example.com/analyze';
+const payload = {
+  text: 'Quiero agradecer enormemente al equipo de soporte técnico'
+};
+
+fetch(url, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(payload)
+})
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Sentiment: ${data.sentiment}`);
+    console.log(`Score: ${data.score}`);
+  });
+```
+
+</CodeGroup>
+
+## Example responses
+
+### Positive sentiment
+
+```json
+{
+  "sentiment": "positivo",
+  "score": 0.92
+}
+```
+
+### Neutral sentiment
+
+```json
+{
+  "sentiment": "neutral",
+  "score": 0.76
+}
+```
+
+### Negative sentiment
+
+```json
+{
+  "sentiment": "negativo",
+  "score": 0.88
+}
+```
+
+## Error responses
+
+### Empty text (400)
+
+If you send empty text or text containing only whitespace, the API returns a 400 error:
+
+```json
+{
+  "detail": "El texto no puede estar vacío"
+}
+```
+
+<Warning>
+  Make sure the `text` field contains actual content. Empty strings, whitespace-only strings, and strings with only special characters will trigger a validation error.
+</Warning>
+
+## Rate limits
+
+This endpoint currently has no rate limits.

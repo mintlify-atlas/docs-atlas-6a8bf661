@@ -1,0 +1,342 @@
+---
+title: Sentiment model
+description: Understand how the machine learning model classifies sentiment in user feedback
+---
+
+The `SentimentModel` class implements the core machine learning logic for sentiment analysis. It combines TF-IDF vectorization with Logistic Regression to classify feedback as positive or negative.
+
+## Model overview
+
+The model is defined in app/model.py:8 and consists of two key components:
+
+```python
+class SentimentModel:
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer()
+        self.model = LogisticRegression(max_iter=1000)
+        self._train()
+```
+
+<CardGroup cols={2}>
+  <Card title="TfidfVectorizer" icon="table">
+    Converts text into numerical feature vectors
+  </Card>
+  <Card title="LogisticRegression" icon="chart-line">
+    Classifies sentiment based on feature vectors
+  </Card>
+</CardGroup>
+
+## TF-IDF vectorization
+
+### What is TF-IDF?
+
+TF-IDF (Term Frequency-Inverse Document Frequency) is a numerical statistic that reflects how important a word is to a document in a collection.
+
+**Term Frequency (TF):** How often a word appears in a document
+
+**Inverse Document Frequency (IDF):** How rare a word is across all documents
+
+**TF-IDF Score:** TF × IDF gives higher weight to distinctive words
+
+<Accordion title="Why TF-IDF works for sentiment analysis">
+  Words like "excellent" or "terrible" appear frequently in specific sentiment categories but not in all feedback. TF-IDF gives these distinctive words higher weights, making them strong sentiment indicators.
+  
+  Common words like "the", "is", "a" appear everywhere and get low weights, preventing them from dominating the model.
+</Accordion>
+
+### The vectorizer
+
+```python
+self.vectorizer = TfidfVectorizer()
+```
+
+The `TfidfVectorizer` from scikit-learn:
+- Learns vocabulary from training data
+- Converts each text into a sparse numerical vector
+- Each dimension represents one word's TF-IDF score
+
+**Example transformation:**
+```
+Text:   "excellent product"
+Vector: [0.0, 0.0, 0.82, 0.0, ..., 0.57, 0.0]
+         ↑                ↑            ↑
+         "bad"        "excellent"  "product"
+```
+
+## Logistic Regression classifier
+
+### Model choice
+
+```python
+self.model = LogisticRegression(max_iter=1000)
+```
+
+Logistic Regression is ideal for this task because it:
+- **Trains quickly** on small to medium datasets
+- **Produces probabilities** (not just labels)
+- **Handles sparse features** well (TF-IDF vectors are mostly zeros)
+- **Interprets easily** (you can inspect feature weights)
+
+<Info>
+The `max_iter=1000` parameter sets the maximum number of iterations for the optimization algorithm. This ensures convergence on the training dataset.
+</Info>
+
+### How it works
+
+Logistic Regression learns weights for each word:
+- **Positive weights** - Words like "excellent", "great", "love"
+- **Negative weights** - Words like "terrible", "awful", "hate"
+- **Near-zero weights** - Neutral words like "product", "item"
+
+The model combines word weights to predict overall sentiment.
+
+## Training process
+
+Training happens automatically when you instantiate `SentimentModel`. Here's the complete `_train` method from app/model.py:14:
+
+```python
+def _train(self):
+    df = pd.read_csv("data/reviews.csv")
+    
+    df["clean_text"] = df["message"].apply(clean_text)
+    
+    X = df["clean_text"]
+    y = df["sentiment"]
+    
+    X_vec = self.vectorizer.fit_transform(X)
+    
+    self.model.fit(X_vec, y)
+```
+
+### Training steps
+
+<Steps>
+  <Step title="Load training data">
+    Reads `data/reviews.csv` which contains labeled feedback examples with `message` and `sentiment` columns
+  </Step>
+  <Step title="Preprocess text">
+    Applies `clean_text()` to each message to normalize the input
+  </Step>
+  <Step title="Extract features and labels">
+    - `X`: Preprocessed text messages
+    - `y`: Sentiment labels (e.g., "positive", "negative")
+  </Step>
+  <Step title="Vectorize text">
+    `fit_transform()` learns vocabulary and converts all messages to TF-IDF vectors
+  </Step>
+  <Step title="Train classifier">
+    `fit()` learns weights that best separate positive from negative sentiment
+  </Step>
+</Steps>
+
+<Note>
+Training happens at startup (app initialization), so the model is ready to handle requests immediately. For large datasets, you'd want to train offline and load a saved model.
+</Note>
+
+## Prediction process
+
+When you call `predict()`, the model classifies the sentiment of new text. Here's the complete method from app/model.py:26:
+
+```python
+def predict(self, text: str):
+    # Vectorizar el texto
+    text_vec = self.vectorizer.transform([text])
+    
+    # Obtener probabilidades para cada clase
+    probabilities = self.model.predict_proba(text_vec)[0]
+    
+    # Obtener el índice de la clase con mayor probabilidad
+    best_index = probabilities.argmax()
+    
+    # Obtener el nombre de la clase
+    sentiment = self.model.classes_[best_index]
+    
+    # Obtener la confianza del modelo para esa clase
+    score = probabilities[best_index]
+    
+    return {
+        "sentiment": sentiment,
+        "score": float(score)
+    }
+```
+
+### Prediction steps
+
+<Steps>
+  <Step title="Vectorize input">
+    Converts the preprocessed text to a TF-IDF vector using the vocabulary learned during training
+  </Step>
+  <Step title="Calculate probabilities">
+    `predict_proba()` returns probability scores for each sentiment class
+  </Step>
+  <Step title="Find best class">
+    `argmax()` identifies the class with the highest probability
+  </Step>
+  <Step title="Extract sentiment label">
+    Maps the index to the actual sentiment label (e.g., "positive" or "negative")
+  </Step>
+  <Step title="Get confidence score">
+    Extracts the probability for the predicted class
+  </Step>
+  <Step title="Return result">
+    Returns a dictionary with sentiment label and confidence score
+  </Step>
+</Steps>
+
+## Understanding probabilities
+
+The model returns probabilities for each possible sentiment class:
+
+```python
+probabilities = self.model.predict_proba(text_vec)[0]
+# Example: array([0.23, 0.77])
+#                  ↑      ↑
+#              negative positive
+```
+
+### Probability calculation
+
+Logistic Regression uses the sigmoid function:
+
+1. **Linear combination**: Multiply TF-IDF scores by learned weights
+2. **Sigmoid transformation**: Convert to probability between 0 and 1
+3. **Normalization**: Ensure probabilities sum to 1 across all classes
+
+<Accordion title="Mathematical details">
+  For binary classification:
+  
+  ```
+  z = w₀ + w₁x₁ + w₂x₂ + ... + wₙxₙ
+  P(positive) = 1 / (1 + e^(-z))
+  P(negative) = 1 - P(positive)
+  ```
+  
+  Where:
+  - `w` = learned weights for each word
+  - `x` = TF-IDF scores from input text
+  - `z` = weighted sum (logit)
+</Accordion>
+
+## Confidence scores
+
+The `score` field in the response represents the model's confidence:
+
+<CodeGroup>
+
+```json High confidence
+{
+  "sentiment": "positive",
+  "score": 0.95
+}
+```
+
+```json Low confidence
+{
+  "sentiment": "positive",
+  "score": 0.52
+}
+```
+
+</CodeGroup>
+
+### Interpreting scores
+
+| Score Range | Interpretation |
+|-------------|----------------|
+| 0.90 - 1.00 | Very confident - Clear sentiment signals |
+| 0.70 - 0.89 | Confident - Strong sentiment indicators |
+| 0.51 - 0.69 | Uncertain - Mixed or weak signals |
+| 0.50        | Random guess - No clear sentiment |
+
+<Warning>
+Scores close to 0.5 indicate ambiguous input. Consider:
+- Asking users for clarification
+- Flagging for manual review
+- Setting a confidence threshold for automatic classification
+</Warning>
+
+## Model behavior examples
+
+### Clear sentiment
+
+```python
+# Strong positive words
+text = "excellent product love it"
+result = sentiment_model.predict(text)
+# {"sentiment": "positive", "score": 0.94}
+```
+
+### Mixed signals
+
+```python
+# Contains both positive and negative words
+text = "good quality but terrible customer service"
+result = sentiment_model.predict(text)
+# {"sentiment": "negative", "score": 0.58}
+```
+
+### Neutral input
+
+```python
+# No strong sentiment indicators
+text = "this is a product"
+result = sentiment_model.predict(text)
+# {"sentiment": "positive", "score": 0.51}
+```
+
+## Model limitations
+
+<AccordionGroup>
+  <Accordion title="No context understanding">
+    The model uses bag-of-words, so it doesn't understand:
+    - Negation: "not good" is treated similarly to "good"
+    - Sarcasm: "oh great, another broken product" might be classified as positive
+    - Word order: "product is not terrible" vs "terrible, not product"
+  </Accordion>
+  
+  <Accordion title="Limited to training data">
+    The model only knows words and patterns from `data/reviews.csv`:
+    - New slang or terminology might be ignored
+    - Domain-specific sentiment might not transfer
+    - Rare words get low weight regardless of sentiment
+  </Accordion>
+  
+  <Accordion title="Binary classification">
+    The current implementation likely classifies as positive/negative:
+    - No neutral category for mixed feedback
+    - No intensity levels (slightly positive vs very positive)
+    - No multi-label support (e.g., positive quality, negative price)
+  </Accordion>
+  
+  <Accordion title="Training on startup">
+    The model trains every time the application starts:
+    - Slower startup with large datasets
+    - Results can vary slightly between runs
+    - No version control for trained models
+  </Accordion>
+</AccordionGroup>
+
+## Improving the model
+
+For better sentiment analysis, consider:
+
+<CardGroup cols={2}>
+  <Card title="N-grams" icon="link">
+    Use TfidfVectorizer with `ngram_range=(1,2)` to capture phrases like "not good"
+  </Card>
+  <Card title="Model serialization" icon="floppy-disk">
+    Save trained model with joblib and load at startup for consistency
+  </Card>
+  <Card title="Hyperparameter tuning" icon="sliders">
+    Use GridSearchCV to find optimal TF-IDF and LogisticRegression parameters
+  </Card>
+  <Card title="Deep learning" icon="brain">
+    Consider transformer models (BERT, RoBERTa) for better context understanding
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<Card title="Architecture overview" icon="sitemap" href="/architecture/overview">
+  Return to the architecture overview to see how all components work together
+</Card>

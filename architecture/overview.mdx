@@ -1,0 +1,161 @@
+---
+title: Architecture overview
+description: Understand the structure and design of the Smart Feedback API
+---
+
+The Smart Feedback API is a sentiment analysis REST API that uses machine learning to classify user feedback as positive or negative. This page explains how the system is organized and how its components work together.
+
+## Project structure
+
+The project follows a clean, modular architecture:
+
+```
+source/
+├── app/
+│   ├── __init__.py
+│   ├── main.py           # FastAPI application and endpoints
+│   ├── model.py          # Machine learning model implementation
+│   └── preprocessing.py  # Text preprocessing utilities
+├── data/
+│   └── reviews.csv       # Training data for sentiment analysis
+└── requirements.txt      # Python dependencies
+```
+
+### Core directories
+
+**app/** - Contains all application code organized by responsibility:
+- API endpoints and request handling
+- Machine learning model logic
+- Text preprocessing functions
+
+**data/** - Stores the training dataset used to build the sentiment model. The `reviews.csv` file contains labeled feedback examples that train the classifier.
+
+## Component architecture
+
+The system has three main components that work together:
+
+<Steps>
+  <Step title="FastAPI Application (main.py)">
+    Handles HTTP requests, validates input, and orchestrates the analysis workflow
+  </Step>
+  <Step title="Preprocessing Module (preprocessing.py)">
+    Cleans and normalizes text before analysis
+  </Step>
+  <Step title="Sentiment Model (model.py)">
+    Performs the actual sentiment classification using trained ML models
+  </Step>
+</Steps>
+
+## Data flow
+
+When you send a feedback message to the API, it goes through this pipeline:
+
+```mermaid
+graph LR
+    A[HTTP Request] --> B[FastAPI Endpoint]
+    B --> C[Validate Input]
+    C --> D[clean_text]
+    D --> E[SentimentModel.predict]
+    E --> F[HTTP Response]
+```
+
+1. **Request arrives** - FastAPI receives the POST request at `/analyze`
+2. **Validation** - Pydantic validates the request body structure
+3. **Preprocessing** - `clean_text()` normalizes the text
+4. **Prediction** - `SentimentModel.predict()` classifies sentiment
+5. **Response** - Returns sentiment label and confidence score
+
+Here's the actual endpoint implementation from app/main.py:27:
+
+```python
+@app.post("/analyze", response_model=AnalyzeResponse)
+def analyze_sentiment(request: AnalyzeRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="El texto no puede estar vacío")
+
+    clean = clean_text(request.text)
+    result = sentiment_model.predict(clean)
+
+    return result
+```
+
+## Component interaction
+
+### Application initialization
+
+When the API starts, it initializes the sentiment model in app/main.py:15:
+
+```python
+sentiment_model = SentimentModel()
+```
+
+The `SentimentModel` constructor automatically:
+1. Creates a TF-IDF vectorizer
+2. Initializes a Logistic Regression classifier
+3. Loads training data from `data/reviews.csv`
+4. Trains the model on historical feedback
+
+<Note>
+Model training happens at startup, so the first request has no cold start delay.
+</Note>
+
+### Request handling
+
+The endpoint uses Pydantic models to define the API contract:
+
+```python
+class AnalyzeRequest(BaseModel):
+    text: str
+
+class AnalyzeResponse(BaseModel):
+    sentiment: str
+    score: float
+```
+
+This ensures type safety and automatic validation of incoming requests and outgoing responses.
+
+## Technology choices
+
+### FastAPI
+
+FastAPI provides:
+- **Type validation** with Pydantic models
+- **Automatic documentation** via OpenAPI/Swagger
+- **High performance** with async support
+- **Developer experience** with clear error messages
+
+### scikit-learn
+
+The ML stack uses battle-tested components:
+- **TfidfVectorizer** - Converts text to numerical features
+- **LogisticRegression** - Fast, interpretable classifier
+- **pandas** - Efficient data loading and preprocessing
+
+<Info>
+Logistic Regression is configured with `max_iter=1000` to ensure convergence on the training dataset.
+</Info>
+
+### Design rationale
+
+**Simplicity over complexity** - The architecture prioritizes:
+- Single-file modules with clear responsibilities
+- Minimal dependencies
+- Synchronous processing (sufficient for most use cases)
+- Training at startup (acceptable for small datasets)
+
+**Production considerations** - For larger deployments, you might want to:
+- Serialize the trained model and load it (instead of training at startup)
+- Add caching for repeated queries
+- Implement async endpoints for I/O-bound operations
+- Add monitoring and logging
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Text preprocessing" icon="broom" href="/architecture/preprocessing">
+    Learn how text is cleaned and normalized
+  </Card>
+  <Card title="ML model" icon="brain" href="/architecture/model">
+    Explore the sentiment classification model
+  </Card>
+</CardGroup>

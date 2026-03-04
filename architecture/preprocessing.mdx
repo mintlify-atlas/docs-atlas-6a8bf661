@@ -1,0 +1,222 @@
+---
+title: Text preprocessing
+description: Learn how the Smart Feedback API cleans and normalizes text before sentiment analysis
+---
+
+Text preprocessing is the first step in the sentiment analysis pipeline. It transforms raw user input into a clean, normalized format that the machine learning model can process effectively.
+
+## Purpose
+
+Preprocessing solves several critical problems:
+
+<AccordionGroup>
+  <Accordion title="Reduces vocabulary size">
+    Converting "Hello", "HELLO", and "hello" to the same token reduces the model's vocabulary, making it more efficient and generalizable.
+  </Accordion>
+  <Accordion title="Removes noise">
+    Punctuation, special characters, and extra whitespace don't contribute to sentiment and can confuse the model.
+  </Accordion>
+  <Accordion title="Normalizes encoding">
+    Unicode characters with accents (é, ñ, ü) are converted to ASCII equivalents, ensuring consistent text representation.
+  </Accordion>
+  <Accordion title="Improves generalization">
+    By standardizing text format, the model learns patterns that work across different writing styles.
+  </Accordion>
+</AccordionGroup>
+
+## The clean_text function
+
+All preprocessing happens in a single function defined in app/preprocessing.py:4:
+
+```python
+import re
+import unicodedata
+
+def clean_text(text: str) -> str:
+    text = text.lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("utf-8")
+    text = re.sub(r"[^a-z\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+```
+
+This function applies five transformations in sequence, each building on the previous step.
+
+## Preprocessing steps
+
+### Step 1: Lowercase conversion
+
+```python
+text = text.lower()
+```
+
+**What it does:** Converts all characters to lowercase.
+
+**Why it matters:** The model should treat "Great product!" and "GREAT PRODUCT!" as identical. Lowercasing ensures that capitalization doesn't create separate features in the vocabulary.
+
+**Example:**
+```
+Input:  "This Product is AMAZING!"
+Output: "this product is amazing!"
+```
+
+### Step 2: Unicode normalization
+
+```python
+text = unicodedata.normalize("NFKD", text)
+```
+
+**What it does:** Decomposes Unicode characters into their base characters and combining marks using NFKD (Compatibility Decomposition).
+
+**Why it matters:** Characters like "é" become "e" + combining accent. This prepares the text for ASCII conversion in the next step.
+
+**Example:**
+```
+Input:  "café español"
+Output: "cafe español" (accents separated as combining characters)
+```
+
+### Step 3: ASCII encoding
+
+```python
+text = text.encode("ascii", "ignore").decode("utf-8")
+```
+
+**What it does:** Encodes text to ASCII bytes, ignoring any characters that can't be represented in ASCII, then decodes back to a string.
+
+**Why it matters:** Removes accents, emojis, and other non-ASCII characters. This creates a consistent character set for the model.
+
+**Example:**
+```
+Input:  "café español 😊"
+Output: "cafe espanol "
+```
+
+<Warning>
+This step removes all non-ASCII characters including emojis, which might carry sentiment information. For emoji-rich feedback, you might want to preprocess emojis differently.
+</Warning>
+
+### Step 4: Remove non-alphabetic characters
+
+```python
+text = re.sub(r"[^a-z\s]", "", text)
+```
+
+**What it does:** Removes anything that isn't a lowercase letter (a-z) or whitespace (\s).
+
+**Why it matters:** Eliminates punctuation, numbers, and special characters that don't contribute to sentiment classification. The model focuses purely on words.
+
+**Example:**
+```
+Input:  "great product! 5/5 stars!!!"
+Output: "great product  stars"
+```
+
+<Note>
+Numbers and punctuation are removed because this model uses a bag-of-words approach. More sophisticated models might preserve some punctuation (e.g., "!" for emphasis).
+</Note>
+
+### Step 5: Normalize whitespace
+
+```python
+text = re.sub(r"\s+", " ", text).strip()
+```
+
+**What it does:** Replaces multiple consecutive whitespace characters with a single space, then removes leading and trailing whitespace.
+
+**Why it matters:** Ensures consistent spacing between words and prevents empty strings or strings with only whitespace from causing issues.
+
+**Example:**
+```
+Input:  "  great    product  "
+Output: "great product"
+```
+
+## Complete transformation examples
+
+Here's how the complete pipeline transforms various inputs:
+
+<CodeGroup>
+
+```text Positive feedback
+Input:  "This is an EXCELLENT product! 😊"
+Output: "this is an excellent product"
+```
+
+```text Negative feedback
+Input:  "¡Terrible experiencia! No lo recomiendo..."
+Output: "terrible experiencia no lo recomiendo"
+```
+
+```text Mixed case with numbers
+Input:  "Pretty good, I'd rate it 8/10"
+Output: "pretty good id rate it"
+```
+
+```text Multiple languages
+Input:  "Très bon café ☕"
+Output: "tres bon cafe"
+```
+
+</CodeGroup>
+
+## Usage in the pipeline
+
+The preprocessing function is called in two places:
+
+### 1. During training (app/model.py:17)
+
+```python
+def _train(self):
+    df = pd.read_csv("data/reviews.csv")
+    df["clean_text"] = df["message"].apply(clean_text)
+    X = df["clean_text"]
+    y = df["sentiment"]
+    # ... vectorization and training
+```
+
+All training examples are preprocessed to create consistent features.
+
+### 2. During prediction (app/main.py:32)
+
+```python
+@app.post("/analyze", response_model=AnalyzeResponse)
+def analyze_sentiment(request: AnalyzeRequest):
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="El texto no puede estar vacío")
+    
+    clean = clean_text(request.text)
+    result = sentiment_model.predict(clean)
+    return result
+```
+
+Input text is preprocessed the same way as training data, ensuring the model sees consistent input.
+
+<Info>
+**Critical insight:** The preprocessing must be identical during training and prediction. If you change `clean_text()`, you must retrain the model.
+</Info>
+
+## Limitations and considerations
+
+### Information loss
+
+The current preprocessing removes potentially useful signals:
+- **Emojis** - "😊" vs "😢" clearly indicate sentiment
+- **Punctuation** - "good" vs "good!!!" have different intensity
+- **Capitalization** - "HORRIBLE" emphasizes strong negative sentiment
+- **Numbers** - "5/5" or "1/10" are sentiment indicators
+
+### Alternative approaches
+
+For more sophisticated sentiment analysis, you might:
+- Convert emojis to text (😊 → "happy")
+- Count exclamation marks as a separate feature
+- Preserve certain punctuation patterns
+- Use subword tokenization (like WordPiece or BPE)
+
+## Next steps
+
+<Card title="ML model" icon="brain" href="/architecture/model">
+  Learn how the preprocessed text is transformed into sentiment predictions
+</Card>

@@ -1,80 +1,181 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get Smart Feedback API up and running in minutes
 ---
 
-## Get started in three steps
+## Get started with Smart Feedback API
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through installing, running, and making your first request to the Smart Feedback API.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Set up a virtual environment">
+    Create and activate a Python virtual environment to isolate your dependencies:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <CodeGroup>
+    ```bash Linux/Mac
+    python -m venv venv
+    source venv/bin/activate
+    ```
 
-### Step 2: Deploy your changes
+    ```bash Windows
+    python -m venv venv
+    venv\Scripts\activate
+    ```
+    </CodeGroup>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <Note>
+    Using a virtual environment is recommended to avoid conflicts with other Python projects.
+    </Note>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Install dependencies">
+    Install all required packages from the requirements file:
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-### Step 3: Go live
+    This installs the core dependencies:
+    - FastAPI (0.128.5)
+    - Uvicorn (0.40.0)
+    - scikit-learn (1.8.0)
+    - pandas (3.0.0)
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Start the server">
+    Launch the API server using Uvicorn:
+
+    ```bash
+    uvicorn app.main:app --reload
+    ```
+
+    The `--reload` flag enables auto-reloading during development. You should see output like:
+
+    ```
+    INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+    INFO:     Started reloader process
+    INFO:     Started server process
+    INFO:     Waiting for application startup.
+    INFO:     Application startup complete.
+    ```
+
+    <Warning>
+    The server needs access to `data/reviews.csv` to train the model on startup. Make sure this file exists in your project directory.
+    </Warning>
+  </Step>
+
+  <Step title="Make your first request">
+    Send a POST request to the `/analyze` endpoint:
+
+    ```bash
+    curl -X POST "http://127.0.0.1:8000/analyze" \
+      -H "Content-Type: application/json" \
+      -d '{"text": "¡Hola equipo! Quería compartir mi experiencia con el proceso de onboarding. La verdad es que fue mucho más fácil de lo que me imaginaba. Desde el primer día, me sentí muy bienvenido y las herramientas que proporcionaron fueron super útiles. Las sesiones de capacitación estaban bien estructuradas y los tutores eran muy pacientes; respondieron a todas mis dudas sin dudarlo. Además, la comunicación fue clara y siempre estuve al tanto de lo que seguía. Siento que tengo una buena base para empezar en este nuevo rol. Creo que hicieron un gran trabajo al diseñar todo, ¡mil gracias!"}'
+    ```
+
+    You'll receive a response with the sentiment analysis:
+
+    ```json
+    {
+      "sentiment": "positivo",
+      "score": 0.9498749406711353
+    }
+    ```
+
+    The response includes:
+    - `sentiment` - Detected sentiment (positivo, neutral, or negativo)
+    - `score` - Confidence level from 0.0 to 1.0 (higher means more confident)
+  </Step>
+
+  <Step title="Explore the interactive docs">
+    Open your browser and navigate to the auto-generated API documentation:
+
+    ```
+    http://127.0.0.1:8000/docs
+    ```
+
+    FastAPI automatically generates interactive documentation where you can:
+    - View all available endpoints
+    - See request/response schemas
+    - Test API calls directly in your browser
+    - Download the OpenAPI specification
+
+    <Note>
+    The interactive docs are powered by Swagger UI and are available at `/docs`. An alternative ReDoc interface is available at `/redoc`.
+    </Note>
+  </Step>
+</Steps>
+
+## Understanding the API
+
+The `/analyze` endpoint is defined in `app/main.py:27` and accepts a simple request format:
+
+### Request structure
+
+```json
+{
+  "text": "string"
+}
+```
+
+The `text` field is required and cannot be empty. If you send an empty string, you'll receive a 400 error.
+
+### Response structure
+
+```json
+{
+  "sentiment": "string",
+  "score": 0.0
+}
+```
+
+## How sentiment is determined
+
+Behind the scenes, the API uses a machine learning pipeline:
+
+1. **Text cleaning** (`app/preprocessing.py:4`) - Converts to lowercase, removes accents, strips special characters
+2. **TF-IDF vectorization** (`app/model.py:10`) - Transforms text into numerical features
+3. **Logistic Regression** (`app/model.py:11`) - Predicts sentiment with probability scores
+
+The model returns probabilities for all classes and selects the one with the highest confidence.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="API reference" icon="code" href="/api/analyze">
+    Explore detailed endpoint documentation
+  </Card>
+  <Card title="Usage Guide" icon="book" href="/guides/usage">
+    Learn advanced usage patterns
+  </Card>
+  <Card title="Model Training" icon="graduation-cap" href="/guides/model-training">
+    Understand how the model works
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Explore the system architecture
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Try different examples
+
+Experiment with different types of feedback:
+
+<CodeGroup>
+```bash Positive feedback
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Great product! Very satisfied with the purchase."}'
+```
+
+```bash Negative feedback
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Terrible experience. Would not recommend."}'
+```
+
+```bash Neutral feedback
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "The product arrived on time. It works as expected."}'
+```
+</CodeGroup>

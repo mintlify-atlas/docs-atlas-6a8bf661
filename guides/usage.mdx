@@ -1,0 +1,315 @@
+---
+title: Usage
+description: Learn how to start the Smart Feedback API server and analyze sentiment in customer feedback
+---
+
+This guide covers everything you need to know about running and using the Smart Feedback API.
+
+## Starting the Server
+
+Once you've completed the installation, start the API server using uvicorn:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+<Note>
+  The `--reload` flag enables auto-reload during development. The server will restart automatically when you make code changes.
+</Note>
+
+You should see output similar to:
+
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process
+INFO:     Started server process
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+```
+
+The API is now running at `http://127.0.0.1:8000`.
+
+### Custom Host and Port
+
+You can customize the host and port:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8080
+```
+
+## Making API Requests
+
+The Smart Feedback API provides a single endpoint for sentiment analysis:
+
+```
+POST /analyze
+```
+
+### Basic Request
+
+Here's how to analyze sentiment using curl:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Quiero agradecer enormemente al equipo de soporte técnico"}'
+```
+
+### Python Examples
+
+<CodeGroup>
+```python requests library
+import requests
+
+url = "http://127.0.0.1:8000/analyze"
+payload = {
+    "text": "Quiero agradecer enormemente al equipo de soporte técnico"
+}
+
+response = requests.post(url, json=payload)
+result = response.json()
+
+print(f"Sentiment: {result['sentiment']}")
+print(f"Confidence: {result['score']:.2f}")
+```
+
+```python httpx (async)
+import httpx
+import asyncio
+
+async def analyze_sentiment(text: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "http://127.0.0.1:8000/analyze",
+            json={"text": text}
+        )
+        return response.json()
+
+result = asyncio.run(analyze_sentiment(
+    "Quiero agradecer enormemente al equipo de soporte técnico"
+))
+print(result)
+```
+</CodeGroup>
+
+## Sentiment Examples
+
+The model classifies feedback into three categories: **positivo**, **neutral**, and **negativo**.
+
+<Tabs>
+  <Tab title="Positive Sentiment">
+    ```bash
+    curl -X POST "http://127.0.0.1:8000/analyze" \
+      -H "Content-Type: application/json" \
+      -d '{"text": "La atención al cliente fue excepcional, el personal fue muy amable y me ayudó en todo momento"}'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "sentiment": "positivo",
+      "score": 0.92
+    }
+    ```
+  </Tab>
+
+  <Tab title="Neutral Sentiment">
+    ```bash
+    curl -X POST "http://127.0.0.1:8000/analyze" \
+      -H "Content-Type: application/json" \
+      -d '{"text": "El servicio fue correcto, aunque nada destacable. El tiempo de espera fue aceptable"}'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "sentiment": "neutral",
+      "score": 0.78
+    }
+    ```
+  </Tab>
+
+  <Tab title="Negative Sentiment">
+    ```bash
+    curl -X POST "http://127.0.0.1:8000/analyze" \
+      -H "Content-Type: application/json" \
+      -d '{"text": "No estoy satisfecho con la plataforma. He tenido muchos problemas técnicos y el soporte no responde"}'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "sentiment": "negativo",
+      "score": 0.88
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Understanding Responses
+
+### Response Fields
+
+Every successful request returns a JSON object with two fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sentiment` | string | The predicted sentiment class: `positivo`, `neutral`, or `negativo` |
+| `score` | float | Confidence score between 0 and 1, where higher values indicate greater certainty |
+
+### Confidence Score
+
+The `score` field represents the model's confidence in its prediction:
+
+- **0.9 - 1.0**: Very high confidence - the model is very certain
+- **0.7 - 0.9**: High confidence - reliable prediction
+- **0.5 - 0.7**: Moderate confidence - prediction is likely correct but less certain
+- **Below 0.5**: Low confidence - the text may be ambiguous
+
+<Tip>
+  For production use cases, you may want to set a confidence threshold (e.g., 0.7) and flag predictions below that threshold for manual review.
+</Tip>
+
+## Error Handling
+
+The API validates all requests and returns appropriate error responses.
+
+### Empty Text Error
+
+Sending empty or whitespace-only text returns a 400 error:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "   "}'
+```
+
+**Response:**
+```json
+{
+  "detail": "El texto no puede estar vacío"
+}
+```
+
+This validation is implemented in `app/main.py:29`:
+
+```python
+if not request.text.strip():
+    raise HTTPException(status_code=400, detail="El texto no puede estar vacío")
+```
+
+### Handling Errors in Code
+
+<CodeGroup>
+```python Basic error handling
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/analyze",
+    json={"text": "  "}
+)
+
+if response.status_code == 200:
+    result = response.json()
+    print(f"Sentiment: {result['sentiment']}")
+else:
+    print(f"Error {response.status_code}: {response.json()['detail']}")
+```
+
+```python With exception handling
+import requests
+from requests.exceptions import RequestException
+
+def analyze_feedback(text: str):
+    try:
+        response = requests.post(
+            "http://127.0.0.1:8000/analyze",
+            json={"text": text},
+            timeout=5
+        )
+        response.raise_for_status()
+        return response.json()
+    except RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
+result = analyze_feedback("Great service!")
+if result:
+    print(f"Sentiment: {result['sentiment']}")
+```
+</CodeGroup>
+
+## Interactive API Documentation
+
+The Smart Feedback API includes automatic interactive documentation powered by FastAPI:
+
+<CardGroup cols={2}>
+  <Card title="Swagger UI" icon="browser" href="http://127.0.0.1:8000/docs">
+    Visit `/docs` for an interactive interface where you can test API endpoints directly in your browser
+  </Card>
+  <Card title="ReDoc" icon="book" href="http://127.0.0.1:8000/redoc">
+    Visit `/redoc` for alternative documentation with a clean, readable layout
+  </Card>
+</CardGroup>
+
+<Note>
+  Make sure the server is running before accessing the documentation URLs.
+</Note>
+
+The interactive docs allow you to:
+- View all available endpoints
+- See request and response schemas
+- Test requests directly in the browser
+- Download OpenAPI specification
+
+## Best Practices
+
+### Text Preprocessing
+
+The API automatically cleans text using `app/preprocessing.py:4`:
+
+1. **Lowercase conversion** - All text is converted to lowercase
+2. **Unicode normalization** - Special characters are normalized
+3. **ASCII encoding** - Non-ASCII characters are removed
+4. **Special character removal** - Only letters and spaces are kept
+5. **Whitespace normalization** - Multiple spaces are collapsed into one
+
+You don't need to preprocess text yourself - just send the raw feedback.
+
+### Optimal Input
+
+<CardGroup cols={2}>
+  <Card title="Good Input" icon="check" color="green">
+    Complete sentences with context:
+    - "The support team was very helpful and resolved my issue quickly"
+    - "El servicio fue adecuado pero podría mejorar"
+  </Card>
+  <Card title="Poor Input" icon="xmark" color="red">
+    Single words or fragments:
+    - "good"
+    - "help me"
+    - "???"
+  </Card>
+</CardGroup>
+
+### Performance Tips
+
+<Warning>
+  The model is trained when the server starts, which can take a few seconds. Ensure the training data (`data/reviews.csv`) is available before starting the server.
+</Warning>
+
+- **Batch processing**: For analyzing multiple reviews, consider implementing batch processing in your client code
+- **Caching**: Cache results for identical text to avoid redundant API calls
+- **Async requests**: Use async HTTP clients for better concurrency
+- **Rate limiting**: Implement rate limiting if exposing the API publicly
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Model Training" icon="brain" href="/guides/model-training">
+    Learn how the sentiment model works and how to retrain it
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/analyze">
+    Explore detailed API endpoint documentation
+  </Card>
+</CardGroup>

@@ -1,0 +1,165 @@
+---
+title: Installation
+description: Set up the Smart Feedback API on your local machine with Python and required dependencies
+---
+
+This guide will walk you through installing and setting up the Smart Feedback API for local development.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Python 3.8 or higher** - The API is built with FastAPI and requires modern Python features
+- **pip** - Python package manager (usually comes with Python)
+- **Git** - For cloning the repository (optional)
+
+You can verify your Python version by running:
+
+```bash
+python --version
+```
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone or download the project">
+    Get the Smart Feedback API source code on your machine.
+
+    ```bash
+    git clone <repository-url>
+    cd smart-feedback-api
+    ```
+  </Step>
+
+  <Step title="Create a virtual environment">
+    It's strongly recommended to use a virtual environment to isolate project dependencies.
+
+    <CodeGroup>
+      ```bash macOS/Linux
+      python -m venv venv
+      source venv/bin/activate
+      ```
+
+      ```bash Windows
+      python -m venv venv
+      venv\Scripts\activate
+      ```
+    </CodeGroup>
+
+    Once activated, you should see `(venv)` in your terminal prompt.
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all required packages from the requirements.txt file:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    This will install the following key dependencies:
+    - **fastapi** (0.128.5) - Modern web framework for building APIs
+    - **uvicorn** (0.40.0) - ASGI server for running the application
+    - **scikit-learn** (1.8.0) - Machine learning library for sentiment analysis
+    - **pandas** (3.0.0) - Data manipulation for training data
+    - **pydantic** (2.12.5) - Data validation for request/response models
+  </Step>
+
+  <Step title="Verify the installation">
+    Check that all dependencies are installed correctly:
+
+    ```bash
+    pip list
+    ```
+
+    You should see all packages from requirements.txt listed.
+  </Step>
+</Steps>
+
+## Environment Setup
+
+### Training Data
+
+The API requires a training dataset to build the sentiment model. The project includes a pre-populated dataset at:
+
+```
+data/reviews.csv
+```
+
+This CSV file contains customer reviews with two columns:
+- `message` - The review text
+- `sentiment` - The label (positivo, neutral, negativo)
+
+<Note>
+  The model is trained automatically when the API starts up, loading data from `data/reviews.csv`. Make sure this file exists before starting the server.
+</Note>
+
+### Directory Structure
+
+Ensure your project has the following structure:
+
+```
+smart-feedback-api/
+├── app/
+│   ├── __init__.py
+│   ├── main.py           # FastAPI application
+│   ├── model.py          # Sentiment model implementation
+│   └── preprocessing.py  # Text cleaning utilities
+├── data/
+│   └── reviews.csv       # Training dataset
+├── requirements.txt      # Python dependencies
+└── venv/                 # Virtual environment (after creation)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="ModuleNotFoundError: No module named 'app'">
+    Make sure you're running commands from the project root directory where the `app/` folder is located. If you're inside the `app/` directory, navigate back:
+
+    ```bash
+    cd ..
+    ```
+  </Accordion>
+
+  <Accordion title="FileNotFoundError: data/reviews.csv">
+    The model requires training data to function. Ensure the `data/reviews.csv` file exists in your project. The file should have at least two columns: `message` and `sentiment`.
+  </Accordion>
+
+  <Accordion title="ImportError: cannot import name 'TfidfVectorizer'">
+    This usually means scikit-learn wasn't installed correctly. Try reinstalling:
+
+    ```bash
+    pip uninstall scikit-learn
+    pip install scikit-learn==1.8.0
+    ```
+  </Accordion>
+
+  <Accordion title="Virtual environment not activating">
+    On Windows, you may need to adjust execution policy:
+
+    ```powershell
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    ```
+
+    On macOS/Linux, ensure you're using `source` to activate:
+
+    ```bash
+    source venv/bin/activate
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Once installation is complete, you're ready to start using the API!
+
+<CardGroup cols={2}>
+  <Card title="Usage Guide" icon="rocket" href="/guides/usage">
+    Learn how to start the server and make your first API requests
+  </Card>
+  <Card title="Model Training" icon="brain" href="/guides/model-training">
+    Understand how the sentiment analysis model works
+  </Card>
+</CardGroup>

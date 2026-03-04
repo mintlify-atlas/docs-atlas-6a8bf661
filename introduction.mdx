@@ -1,0 +1,89 @@
+---
+title: Introduction
+description: Learn about Smart Feedback API, a sentiment analysis REST API built with FastAPI and machine learning
+---
+
+## What is Smart Feedback API?
+
+Smart Feedback API is a REST API that analyzes sentiment in user feedback using machine learning. You send text to the API, and it returns the detected sentiment (positive, neutral, or negative) along with a confidence score.
+
+The API is built with FastAPI and uses scikit-learn for sentiment classification, making it fast, reliable, and easy to integrate into your applications.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Real-time sentiment analysis" icon="brain">
+    Analyze text and get instant sentiment predictions with confidence scores
+  </Card>
+  <Card title="Machine learning powered" icon="robot">
+    Uses TF-IDF vectorization and Logistic Regression for accurate classification
+  </Card>
+  <Card title="Automatic text preprocessing" icon="broom">
+    Built-in text cleaning and normalization for consistent results
+  </Card>
+  <Card title="Interactive API documentation" icon="book">
+    Auto-generated OpenAPI documentation at `/docs` endpoint
+  </Card>
+</CardGroup>
+
+## Technology stack
+
+The Smart Feedback API is built with modern Python technologies:
+
+- **FastAPI** - Fast, modern web framework for building APIs
+- **scikit-learn** - Machine learning library for model training and prediction
+- **pandas** - Data manipulation and analysis
+- **Uvicorn** - Lightning-fast ASGI server
+- **Pydantic** - Data validation using Python type annotations
+
+## How it works
+
+The API follows a simple three-step process:
+
+1. **Text preprocessing** - Your input text is cleaned and normalized using `app/preprocessing.py:4`
+2. **Vectorization** - Text is converted to numerical features using TF-IDF
+3. **Classification** - A Logistic Regression model predicts sentiment with confidence scores
+
+The model returns probabilities for each sentiment class (positive, neutral, negative) and selects the one with the highest confidence as the final prediction.
+
+## Use cases
+
+Smart Feedback API is ideal for:
+
+- **Customer feedback analysis** - Automatically categorize product reviews and support tickets
+- **Social media monitoring** - Track sentiment in user comments and posts
+- **Survey analysis** - Analyze open-ended survey responses at scale
+- **Quality assurance** - Monitor sentiment trends in user feedback over time
+
+## Getting started
+
+Ready to start analyzing sentiment? Check out the [Quickstart guide](/quickstart) to set up the API and make your first request.
+
+<Note>
+The model is trained on a dataset of labeled reviews. While it performs well for general feedback, classification accuracy may vary depending on your specific use case.
+</Note>
+
+## API response format
+
+All sentiment analysis requests return a consistent response format defined in `app/main.py:22`:
+
+```json
+{
+  "sentiment": "positivo",
+  "score": 0.9498749406711353
+}
+```
+
+- `sentiment` - The predicted sentiment class (positivo, neutral, or negativo)
+- `score` - Model confidence for the prediction (0.0 to 1.0)
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get the API running in minutes
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/analyze">
+    Explore all available endpoints
+  </Card>
+</CardGroup>
