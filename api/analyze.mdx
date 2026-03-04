@@ -7,7 +7,7 @@ The `/analyze` endpoint processes text input and returns a sentiment classificat
 
 ## Endpoint
 
-```
+```http
 POST /analyze
 ```
 
@@ -41,7 +41,7 @@ No authentication is required for this endpoint.
 <CodeGroup>
 
 ```bash curl
-curl -X POST https://api.example.com/analyze \
+curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -d '{"text": "Quiero agradecer enormemente al equipo de soporte técnico"}'
 ```
@@ -49,7 +49,7 @@ curl -X POST https://api.example.com/analyze \
 ```python Python
 import requests
 
-url = "https://api.example.com/analyze"
+url = "http://127.0.0.1:8000/analyze"
 payload = {
     "text": "Quiero agradecer enormemente al equipo de soporte técnico"
 }
@@ -62,7 +62,7 @@ print(f"Score: {result['score']}")
 ```
 
 ```javascript JavaScript
-const url = 'https://api.example.com/analyze';
+const url = 'http://127.0.0.1:8000/analyze';
 const payload = {
   text: 'Quiero agradecer enormemente al equipo de soporte técnico'
 };

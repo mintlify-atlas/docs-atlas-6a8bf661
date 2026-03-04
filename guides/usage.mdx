@@ -19,7 +19,7 @@ uvicorn app.main:app --reload
 
 You should see output similar to:
 
-```
+```bash
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     Started reloader process
 INFO:     Started server process
@@ -41,7 +41,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 
 The Smart Feedback API provides a single endpoint for sentiment analysis:
 
-```
+```http
 POST /analyze
 ```
 
